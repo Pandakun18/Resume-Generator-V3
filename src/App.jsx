@@ -1201,6 +1201,57 @@ export default function ResumeGenerator() {
     w.document.open(); w.document.write(html); w.document.close();
   };
 
+  const handleExportCLWord = () => {
+    const accentRGB = hexToRtfColor(clAccent);
+    const filename = ((cl.senderName||'cover-letter').replace(/[^a-z0-9]+/gi,'_').toLowerCase())+'_cover_letter.rtf';
+    const useSerif = template.bodyFont?.includes('Baskerville')||template.bodyFont?.includes('Playfair')||template.bodyFont?.includes('Fraunces');
+    const fontTable = useSerif
+      ? `{\\fonttbl{\\f0\\froman\\fcharset0 Garamond;}{\\f1\\fswiss\\fcharset0 Arial;}}`
+      : `{\\fonttbl{\\f0\\fswiss\\fcharset0 Arial;}{\\f1\\froman\\fcharset0 Garamond;}}`;
+    const colorTable = `{\\colortbl;\\red17\\green17\\blue17;\\red80\\green80\\blue80;\\red${accentRGB.r}\\green${accentRGB.g}\\blue${accentRGB.b};}`;
+    const out = [];
+    out.push(`{\\rtf1\\ansi\\ansicpg1252\\deff0\\nouicompat`);
+    out.push(fontTable);
+    out.push(colorTable);
+    out.push(`\\paperw12240\\paperh15840\\margl1152\\margr1152\\margt1152\\margb1152`);
+    out.push(`\\f0\\fs22\\cf1`);
+    // Sender name + title
+    if (cl.senderName) out.push(`{\\pard\\ql\\sb0\\sa60\\fs40\\b\\cf3 ${rtfEscape(cl.senderName)}\\b0\\par}`);
+    if (cl.senderTitle) out.push(`{\\pard\\ql\\sb0\\sa40\\fs22\\i\\cf2 ${rtfEscape(cl.senderTitle)}\\i0\\par}`);
+    // Contact line
+    const contactItems = [cl.senderEmail, cl.senderPhone, cl.senderLocation].filter(Boolean);
+    if (contactItems.length) out.push(`{\\pard\\ql\\sb0\\sa240\\fs19\\cf2 ${rtfEscape(contactItems.join('  ·  '))}\\par}`);
+    // Divider rule
+    out.push(`{\\pard\\ql\\sb0\\sa240\\brdrb\\brdrs\\brdrw15\\brdrcf3\\par}`);
+    // Date
+    if (cl.date) out.push(`{\\pard\\ql\\sb0\\sa120\\fs20\\cf2 ${rtfEscape(cl.date)}\\par}`);
+    // Recipient block
+    if (cl.recipientName||cl.recipientTitle||cl.company) {
+      out.push(`{\\pard\\ql\\sb120\\sa0\\fs21\\cf1`);
+      if (cl.recipientName) out.push(`{\\b ${rtfEscape(cl.recipientName)}\\b0}\\line `);
+      if (cl.recipientTitle) out.push(`${rtfEscape(cl.recipientTitle)}\\line `);
+      if (cl.company) out.push(`${rtfEscape(cl.company)}\\line `);
+      if (cl.companyAddress) out.push(`{\\cf2 ${rtfEscape(cl.companyAddress)}}`);
+      out.push(`\\par}`);
+    }
+    // Salutation
+    const salutation = `Dear ${cl.recipientName || 'Hiring Manager'},`;
+    out.push(`{\\pard\\ql\\sb240\\sa120\\fs22\\cf1 ${rtfEscape(salutation)}\\par}`);
+    // Body paragraphs
+    [cl.opening, cl.body1, cl.body2, cl.body3].filter(Boolean).forEach(p => {
+      out.push(`{\\pard\\ql\\sb0\\sa180\\fs22\\cf1 ${rtfEscape(p)}\\par}`);
+    });
+    // Closing
+    if (cl.closing) out.push(`{\\pard\\ql\\sb60\\sa120\\fs22\\cf1 ${rtfEscape(cl.closing)}\\par}`);
+    // Sign-off
+    out.push(`{\\pard\\ql\\sb180\\sa60\\fs22\\cf1 Sincerely,\\par}`);
+    out.push(`{\\pard\\ql\\sb240\\sa0\\fs24\\b\\cf3 ${rtfEscape(cl.senderName||'')}\\b0\\par}`);
+    if (cl.senderTitle) out.push(`{\\pard\\ql\\sb40\\sa0\\fs20\\i\\cf2 ${rtfEscape(cl.senderTitle)}\\i0\\par}`);
+    out.push(`}`);
+    const blob = new Blob([out.join('\n')], { type:'application/rtf' });
+    downloadBlob(blob, filename);
+  };
+
   /* Accent control strip — reused for both resume and cover letter */
   const AccentStrip = ({ accent, accent2, setAcc, setAcc2, hasOvr, resetOvr, label='Accent', showMirror=false, isMirrored=false, onMirror }) => (
     <div className="border-t border-stone-100 py-2.5 flex items-center gap-3 flex-wrap">
@@ -1443,10 +1494,16 @@ export default function ResumeGenerator() {
                 <div className="tool-body text-[10px] uppercase tracking-[0.2em] text-stone-500">Style</div>
                 <div className="tool-display text-base text-stone-900">{template.label}{!clAccentOverride ? ' · Mirroring resume' : ''}</div>
               </div>
-              <button onClick={handleExportCL}
-                className="tool-body bg-stone-900 hover:bg-stone-700 text-white px-4 py-2.5 rounded text-sm font-medium flex items-center gap-2 transition-colors ml-auto">
-                <Download className="w-4 h-4" /> Download PDF
-              </button>
+              <div className="flex gap-2 ml-auto">
+                <button onClick={handleExportCLWord}
+                  className="tool-body bg-white border border-stone-900 text-stone-900 hover:bg-stone-100 px-4 py-2.5 rounded text-sm font-medium flex items-center gap-2 transition-colors">
+                  <FileText className="w-4 h-4" /> Download Word
+                </button>
+                <button onClick={handleExportCL}
+                  className="tool-body bg-stone-900 hover:bg-stone-700 text-white px-4 py-2.5 rounded text-sm font-medium flex items-center gap-2 transition-colors">
+                  <Download className="w-4 h-4" /> Download PDF
+                </button>
+              </div>
             </div>
           </>}
 
